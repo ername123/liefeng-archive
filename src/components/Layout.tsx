@@ -49,7 +49,7 @@ export default function Layout() {
       <header className="sticky top-0 z-40 border-b-2 border-foreground/10 bg-background/90 backdrop-blur">
         {/* 顶部嘉年华彩带 */}
         <div className="stripe-bar h-[5px] w-full" />
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-5 px-4">
+        <div className="flex h-16 w-full items-center gap-5 px-4 lg:px-8">
           <Link to="/home" className="group flex shrink-0 items-center gap-2.5">
             <span className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[hsl(190_84%_50%)] to-[hsl(217_66%_52%)] font-display text-xl text-white shadow-[3px_3px_0_hsl(203_33%_16%/0.15)] transition-transform group-hover:-rotate-6">
               烈

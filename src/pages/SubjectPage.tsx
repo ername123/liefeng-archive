@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-/** 章节页：左侧章节导航 + 分屏实时编辑预览，自动保存 */
+/** 章节页：阅读/编辑双模式 + 可折叠侧边栏 + 正文铺满 */
 export default function SubjectPage() {
   const { slug = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -37,10 +37,17 @@ export default function SubjectPage() {
   const activeChapter = chapters.find((c) => c.id === activeId) ?? null;
   const activeIndex = chapters.findIndex((c) => c.id === activeId);
 
+  // 阅读 / 编辑双模式
+  const [mode, setMode] = useState<"read" | "edit">("read");
+  // 侧边栏折叠状态：持久化到 localStorage
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem("liefeng-sidebar-collapsed") === "true";
+  });
+  const [chaptersOpen, setChaptersOpen] = useState(false);
+
   // 单文档内容：个人笔记（不为空）> 示例笔记 > 空字符串
   const [draft, setDraft] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [chaptersOpen, setChaptersOpen] = useState(false);
 
   // 首次加载后先跳过自动保存，避免把示例笔记立刻写进个人笔记
   const skipSave = useRef(true);
@@ -101,11 +108,19 @@ export default function SubjectPage() {
     setDraft(value);
   };
 
+  const toggleSidebar = () => {
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      localStorage.setItem("liefeng-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="w-full px-4 py-8 lg:px-6">
         <Skeleton className="mb-6 h-8 w-64 rounded-xl" />
-        <div className="grid gap-8 lg:grid-cols-[180px_minmax(0,1fr)]">
+        <div className="grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
           <Skeleton className="h-96 rounded-2xl" />
           <Skeleton className="h-[700px] rounded-2xl" />
         </div>
@@ -115,7 +130,7 @@ export default function SubjectPage() {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-20 text-center text-muted-foreground">
+      <div className="w-full px-4 py-20 text-center text-muted-foreground">
         学科不存在。<Link to="/" className="text-primary underline">返回首页</Link>
       </div>
     );
@@ -124,7 +139,7 @@ export default function SubjectPage() {
   const Icon = subjectIcon(data.icon);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="w-full px-4 py-8 lg:px-6">
       {/* 学科标题区 */}
       <div className="mb-6 border-b-2 border-foreground/10 pb-5">
         <BackButton to="/home" label="学科首页" className="mb-3" />
@@ -146,13 +161,21 @@ export default function SubjectPage() {
 
       {/* 移动端章节抽屉按钮 */}
       <button className="mb-4 lg:hidden" onClick={() => setChaptersOpen((v) => !v)}>
-        {chaptersOpen ? "收起章节列表" : "打开章节列表"}
+        {chaptersOpen ? "收起章节列表" : "章节目录"}
       </button>
 
-      <div className="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)]">
-        {/* 左侧章节导航：180px */}
+      <div className={cn("grid gap-6", sidebarCollapsed ? "lg:grid-cols-[64px_minmax(0,1fr)]" : "lg:grid-cols-[240px_minmax(0,1fr)]")}>
+        {/* 左侧章节导航：可折叠 */}
         <aside className={`${chaptersOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-24 lg:self-start`}>
-          <div className="ui-card p-2">
+          <div className="ui-card p-2 transition-all duration-200">
+            <button
+              onClick={toggleSidebar}
+              aria-label="折叠侧边栏"
+              className="mb-2 flex w-full items-center justify-center rounded-lg py-1 text-muted-foreground transition-colors hover:bg-gray-50"
+            >
+              {sidebarCollapsed ? "▶" : "◀"}
+            </button>
+
             {chapters.length ? (
               <ol className="space-y-1">
                 {chapters.map((c, i) => (
@@ -160,16 +183,19 @@ export default function SubjectPage() {
                     <button
                       onClick={() => select(c.id)}
                       className={cn(
-                        "relative flex w-full items-baseline gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors",
+                        "relative flex w-full items-center rounded-xl px-2 py-2 text-left text-sm transition-all duration-200",
                         c.id === activeId
                           ? "bg-secondary font-bold text-secondary-foreground"
                           : "text-muted-foreground hover:bg-gray-50 hover:text-foreground",
                       )}
                     >
+                      {c.id === activeId && (
+                        <span className="absolute left-0 top-1/2 h-8 w-[3px] -translate-y-1/2 rounded-full bg-blue-500" />
+                      )}
                       <span className="font-tech shrink-0 text-xs text-muted-foreground/60">
                         {String(i + 1).padStart(2, "0")}
                       </span>
-                      <span className="leading-snug">{c.title}</span>
+                      {!sidebarCollapsed && <span className="ml-2 truncate">{c.title}</span>}
                     </button>
                   </li>
                 ))}
@@ -180,59 +206,85 @@ export default function SubjectPage() {
           </div>
         </aside>
 
-        {/* 主体：分屏编辑 + 实时预览 */}
+        {/* 主体 */}
         <article className="min-w-0">
           {activeChapter ? (
-            <div className="mx-auto max-w-5xl">
-              <div className="ui-card p-5 md:p-6">
-                <h2 className="mb-2 font-display text-3xl font-bold tracking-wide md:text-4xl">{activeChapter.title}</h2>
-                {activeChapter.summary ? (
-                  <p className="mb-4 text-sm text-muted-foreground">{activeChapter.summary}</p>
-                ) : null}
+            <div className="ui-card p-5 md:p-6">
+              <h2 className="mb-2 font-display text-3xl font-bold tracking-wide md:text-4xl">{activeChapter.title}</h2>
+              {activeChapter.summary ? (
+                <p className="mb-4 text-sm text-muted-foreground">{activeChapter.summary}</p>
+              ) : null}
 
-                {user ? (
-                  <div className="mx-auto max-w-4xl">
-                    <Group orientation={isMobile ? "vertical" : "horizontal"} className="gap-0">
-                      <Panel defaultSize="50" minSize="20">
-                        <div className="flex h-full flex-col">
-                          <div className="flex items-center justify-between px-6 pt-3">
-                            <span className="text-xs font-medium text-muted-foreground">编辑</span>
-                            <span className="text-xs text-muted-foreground">
-                              {saveStatus === "saving" && "保存中…"}
-                              {saveStatus === "saved" && "已保存 ✓"}
-                              {saveStatus === "error" && "保存失败 ✗"}
-                            </span>
-                          </div>
-                          <Textarea
-                            value={draft}
-                            onChange={(e) => onChangeDraft(e.target.value)}
-                            placeholder="开始写笔记，支持 Markdown：## 标题、- 列表、| 表格 |、&gt; 引用、==高亮=="
-                            className="min-h-[700px] w-full border-0 bg-transparent p-6 font-mono text-sm leading-relaxed focus-visible:ring-0"
-                          />
+              {/* 阅读 / 编辑 模式切换 */}
+              {user && (
+                <div className="mb-6 flex items-center gap-2">
+                  <button
+                    onClick={() => setMode("read")}
+                    className={cn(
+                      "rounded-full px-5 py-2 text-sm font-medium transition-colors",
+                      mode === "read" ? "bg-primary text-primary-foreground" : "border border-foreground/20 text-muted-foreground",
+                    )}
+                  >
+                    阅读
+                  </button>
+                  <button
+                    onClick={() => setMode("edit")}
+                    className={cn(
+                      "rounded-full px-5 py-2 text-sm font-medium transition-colors",
+                      mode === "edit" ? "bg-primary text-primary-foreground" : "border border-foreground/20 text-muted-foreground",
+                    )}
+                  >
+                    ✏️ 编辑
+                  </button>
+                </div>
+              )}
+
+              {mode === "read" ? (
+                /* 阅读模式：正文铺满 */
+                <div className="w-full px-2 py-2 lg:px-4">
+                  {draft.trim() ? (
+                    <Markdown content={draft} />
+                  ) : (
+                    <p className="py-10 text-sm text-muted-foreground">暂无内容。</p>
+                  )}
+                </div>
+              ) : (
+                /* 编辑模式：分屏实时编辑 + 预览 */
+                <div>
+                  <Group orientation={isMobile ? "vertical" : "horizontal"} className="gap-0">
+                    <Panel defaultSize="50" minSize="20">
+                      <div className="flex h-full flex-col">
+                        <div className="flex items-center justify-between px-6 pt-3">
+                          <span className="text-xs font-medium text-muted-foreground">编辑</span>
+                          <span className="text-xs text-muted-foreground">
+                            {saveStatus === "saving" && "保存中…"}
+                            {saveStatus === "saved" && "已保存 ✓"}
+                            {saveStatus === "error" && "保存失败 ✗"}
+                          </span>
                         </div>
-                      </Panel>
+                        <Textarea
+                          value={draft}
+                          onChange={(e) => onChangeDraft(e.target.value)}
+                          placeholder="开始写笔记，支持 Markdown：## 标题、- 列表、| 表格 |、&gt; 引用、==高亮=="
+                          className="min-h-[700px] w-full border-0 bg-transparent p-6 font-mono text-sm leading-relaxed focus-visible:ring-0"
+                        />
+                      </div>
+                    </Panel>
 
-                      <Separator className="w-1 bg-gray-200 transition-colors hover:bg-gray-400" />
+                    <Separator className="w-1 bg-gray-200 transition-colors hover:bg-gray-400" />
 
-                      <Panel defaultSize="50" minSize="20">
-                        <div className="h-full overflow-y-auto bg-gray-50 p-6">
-                          {draft.trim() ? (
-                            <Markdown content={draft} />
-                          ) : (
-                            <p className="text-sm text-muted-foreground">暂无内容，左侧开始写笔记吧。</p>
-                          )}
-                        </div>
-                      </Panel>
-                    </Group>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="min-h-[700px] rounded-2xl bg-gray-50 p-6">
-                      {draft.trim() ? <Markdown content={draft} /> : <p className="text-sm text-muted-foreground">暂无示例笔记。</p>}
-                    </div>
-                  </div>
-                )}
-              </div>
+                    <Panel defaultSize="50" minSize="20">
+                      <div className="h-full overflow-y-auto bg-gray-50 p-6">
+                        {draft.trim() ? (
+                          <Markdown content={draft} />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">暂无内容，左侧开始写笔记吧。</p>
+                        )}
+                      </div>
+                    </Panel>
+                  </Group>
+                </div>
+              )}
 
               {/* 上一章 / 下一章 */}
               <div className="mt-6 flex items-center justify-between">

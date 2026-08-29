@@ -48,10 +48,12 @@
   html {
     background: hsl(var(--background));
     overflow-x: hidden;
+    overflow-y: scroll; /* 强制始终显示滚动条，避免 hover 时滚动条闪现导致布局抖动 */
   }
   body {
     @apply bg-background text-foreground;
     overflow-x: hidden;
+    overflow-y: scroll; /* 强制始终显示滚动条，避免 hover 时滚动条闪现导致布局抖动 */
     font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;

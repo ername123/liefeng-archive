@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* 夏日嘉年华基调：暖白底 + 高饱和蓝/橙 + 涂鸦彩点 */
-    --background: 44 40% 97%;
+    --background: 210 40% 98%;
     --foreground: 203 33% 16%;
     --card: 0 0% 100%;
     --card-foreground: 203 33% 16%;
@@ -47,6 +47,7 @@
   }
   html {
     background: hsl(var(--background));
+    overflow-x: hidden;
   }
   body {
     @apply bg-background text-foreground;
@@ -84,6 +85,14 @@
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: hsl(204 16% 46%);
+  }
+
+  /* 新版内容卡片：白底、16px 圆角、轻阴影 */
+  .ui-card {
+    background: #fff;
+    border: 1px solid hsl(214 32% 91%);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   }
 
   /* 内容页容器：max-w-5xl 居中 */

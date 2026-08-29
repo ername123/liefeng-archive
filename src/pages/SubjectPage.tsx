@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
+import { Panel, Group, Separator } from "react-resizable-panels";
 import { trpc } from "@/providers/trpc";
 import { Markdown } from "@/components/Markdown";
 import { BackButton } from "@/components/BackButton";
@@ -9,15 +10,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/api/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
-import { Pencil, Eye, ChevronLeft, ChevronRight, ListChecks } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** 章节页：Obsidian 式单文档编辑（一页到底） */
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+/** 章节页：左侧章节导航 + 分屏实时编辑预览，自动保存 */
 export default function SubjectPage() {
   const { slug = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
 
   const { data, isLoading } = trpc.medical.subjectDetail.useQuery({ slug });
   const chapters = data?.chapters ?? [];
@@ -29,27 +34,61 @@ export default function SubjectPage() {
     return chapters[0]?.id ?? null;
   }, [selectedId, chapters]);
 
-  const { data: chapter, isLoading: loadingChapter } = trpc.medical.chapterById.useQuery(
-    { id: activeId! },
-    { enabled: activeId != null },
-  );
+  const activeChapter = chapters.find((c) => c.id === activeId) ?? null;
+  const activeIndex = chapters.findIndex((c) => c.id === activeId);
 
-  // 单文档编辑状态
-  const [tab, setTab] = useState<"edit" | "preview">("edit");
-  const [myNote, setMyNote] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
+  // 单文档内容：个人笔记（不为空）> 示例笔记 > 空字符串
+  const [draft, setDraft] = useState("");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [chaptersOpen, setChaptersOpen] = useState(false);
 
-  // 切换章节或登录状态时，加载当前用户的个人笔记
+  // 首次加载后先跳过自动保存，避免把示例笔记立刻写进个人笔记
+  const skipSave = useRef(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 章节或登录状态变化时加载内容
   useEffect(() => {
     if (!activeId) return;
+    skipSave.current = true;
+    setDraft("");
+    setSaveStatus("idle");
+
+    api.examples.get(activeId).then((r) => {
+      if (!user) setDraft(r.content ?? "");
+    }).catch(() => null);
+
     if (user) {
-      api.notes.get(activeId).then((r) => setMyNote(r.content)).catch(() => setMyNote(""));
-    } else {
-      setMyNote("");
+      api.notes.get(activeId).then((r) => {
+        // 个人笔记为空时回退到示例笔记
+        if (r.content && r.content.trim()) {
+          setDraft(r.content);
+        } else {
+          api.examples.get(activeId).then((ex) => setDraft(ex.content ?? "")).catch(() => setDraft(""));
+        }
+      }).catch(() => {
+        api.examples.get(activeId).then((ex) => setDraft(ex.content ?? "")).catch(() => setDraft(""));
+      });
     }
-    setTab("edit");
   }, [activeId, user]);
+
+  // 自动保存：停止输入 800ms 后触发
+  useEffect(() => {
+    if (!user || skipSave.current) return;
+    setSaveStatus("saving");
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await api.notes.save(activeId, draft);
+        setSaveStatus("saved");
+      } catch (err: any) {
+        setSaveStatus("error");
+        toast.error(err.message || "保存失败");
+      }
+    }, 800);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [draft, user, activeId]);
 
   const select = (id: number) => {
     setSelectedId(id);
@@ -57,17 +96,9 @@ export default function SubjectPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const saveNote = async () => {
-    if (!activeId) return;
-    setSavingNote(true);
-    try {
-      await api.notes.save(activeId, myNote);
-      toast.success("笔记已保存");
-    } catch (err: any) {
-      toast.error(err.message || "保存失败");
-    } finally {
-      setSavingNote(false);
-    }
+  const onChangeDraft = (value: string) => {
+    skipSave.current = false;
+    setDraft(value);
   };
 
   if (isLoading) {
@@ -76,7 +107,7 @@ export default function SubjectPage() {
         <Skeleton className="mb-6 h-8 w-64 rounded-xl" />
         <div className="grid gap-8 lg:grid-cols-[180px_minmax(0,1fr)]">
           <Skeleton className="h-96 rounded-2xl" />
-          <Skeleton className="h-[600px] rounded-2xl" />
+          <Skeleton className="h-[700px] rounded-2xl" />
         </div>
       </div>
     );
@@ -91,7 +122,6 @@ export default function SubjectPage() {
   }
 
   const Icon = subjectIcon(data.icon);
-  const activeIndex = chapters.findIndex((c) => c.id === activeId);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -115,14 +145,14 @@ export default function SubjectPage() {
       </div>
 
       {/* 移动端章节抽屉按钮 */}
-      <button className="mb-4 md:hidden" onClick={() => setChaptersOpen((v) => !v)}>
+      <button className="mb-4 lg:hidden" onClick={() => setChaptersOpen((v) => !v)}>
         {chaptersOpen ? "收起章节列表" : "打开章节列表"}
       </button>
 
       <div className="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)]">
         {/* 左侧章节导航：180px */}
-        <aside className={`${chaptersOpen ? "block" : "hidden"} md:block lg:sticky lg:top-24 lg:self-start`}>
-          <div className="ak-card p-2">
+        <aside className={`${chaptersOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-24 lg:self-start`}>
+          <div className="ui-card p-2">
             {chapters.length ? (
               <ol className="space-y-1">
                 {chapters.map((c, i) => (
@@ -133,7 +163,7 @@ export default function SubjectPage() {
                         "relative flex w-full items-baseline gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors",
                         c.id === activeId
                           ? "bg-secondary font-bold text-secondary-foreground"
-                          : "text-muted-foreground hover:bg-white hover:text-foreground",
+                          : "text-muted-foreground hover:bg-gray-50 hover:text-foreground",
                       )}
                     >
                       <span className="font-tech shrink-0 text-xs text-muted-foreground/60">
@@ -150,94 +180,62 @@ export default function SubjectPage() {
           </div>
         </aside>
 
-        {/* 主体：单文档编辑 */}
+        {/* 主体：分屏编辑 + 实时预览 */}
         <article className="min-w-0">
-          {loadingChapter ? (
-            <div className="ak-card p-6">
-              <Skeleton className="h-9 w-2/3 rounded-xl" />
-              <Skeleton className="mt-4 h-[600px] w-full rounded-2xl" />
-            </div>
-          ) : chapter ? (
-            <div className="ak-card mx-auto max-w-4xl p-5 md:p-7">
-              {/* 章节标题 */}
-              <div className="mb-5 border-b-2 border-dashed border-foreground/10 pb-4">
-                <h2 className="font-display text-3xl font-bold tracking-wide md:text-4xl">{chapter.title}</h2>
-                {chapter.summary ? (
-                  <p className="mt-2 text-sm text-muted-foreground">{chapter.summary}</p>
+          {activeChapter ? (
+            <div className="mx-auto max-w-5xl">
+              <div className="ui-card p-5 md:p-6">
+                <h2 className="mb-2 font-display text-3xl font-bold tracking-wide md:text-4xl">{activeChapter.title}</h2>
+                {activeChapter.summary ? (
+                  <p className="mb-4 text-sm text-muted-foreground">{activeChapter.summary}</p>
                 ) : null}
+
+                {user ? (
+                  <div className="mx-auto max-w-4xl">
+                    <Group orientation={isMobile ? "vertical" : "horizontal"} className="gap-0">
+                      <Panel defaultSize="50" minSize="20">
+                        <div className="flex h-full flex-col">
+                          <div className="flex items-center justify-between px-6 pt-3">
+                            <span className="text-xs font-medium text-muted-foreground">编辑</span>
+                            <span className="text-xs text-muted-foreground">
+                              {saveStatus === "saving" && "保存中…"}
+                              {saveStatus === "saved" && "已保存 ✓"}
+                              {saveStatus === "error" && "保存失败 ✗"}
+                            </span>
+                          </div>
+                          <Textarea
+                            value={draft}
+                            onChange={(e) => onChangeDraft(e.target.value)}
+                            placeholder="开始写笔记，支持 Markdown：## 标题、- 列表、| 表格 |、&gt; 引用、==高亮=="
+                            className="min-h-[700px] w-full border-0 bg-transparent p-6 font-mono text-sm leading-relaxed focus-visible:ring-0"
+                          />
+                        </div>
+                      </Panel>
+
+                      <Separator className="w-1 bg-gray-200 transition-colors hover:bg-gray-400" />
+
+                      <Panel defaultSize="50" minSize="20">
+                        <div className="h-full overflow-y-auto bg-gray-50 p-6">
+                          {draft.trim() ? (
+                            <Markdown content={draft} />
+                          ) : (
+                            <p className="text-sm text-muted-foreground">暂无内容，左侧开始写笔记吧。</p>
+                          )}
+                        </div>
+                      </Panel>
+                    </Group>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="min-h-[700px] rounded-2xl bg-gray-50 p-6">
+                      {draft.trim() ? <Markdown content={draft} /> : <p className="text-sm text-muted-foreground">暂无示例笔记。</p>}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {user ? (
-                <>
-                  {/* 编辑 / 预览 标签 */}
-                  <div className="mb-4 flex items-center gap-2">
-                    <button
-                      onClick={() => setTab("edit")}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-colors",
-                        tab === "edit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white",
-                      )}
-                    >
-                      <Pencil className="h-4 w-4" /> 编辑
-                    </button>
-                    <button
-                      onClick={() => setTab("preview")}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-colors",
-                        tab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white",
-                      )}
-                    >
-                      <Eye className="h-4 w-4" /> 预览
-                    </button>
-                  </div>
-
-                  {tab === "edit" ? (
-                    <Textarea
-                      value={myNote}
-                      onChange={(e) => setMyNote(e.target.value)}
-                      placeholder="开始写笔记，支持 Markdown：## 标题、- 列表、| 表格 |、&gt; 引用、==高亮=="
-                      className="min-h-[600px] w-full font-mono text-sm leading-relaxed"
-                    />
-                  ) : (
-                    <div className="min-h-[600px] rounded-xl border-2 border-foreground/10 bg-background p-4">
-                      {myNote.trim() ? (
-                        <Markdown content={myNote} />
-                      ) : (
-                        <p className="text-sm text-muted-foreground">还没有笔记，切换到「编辑」开始写吧。</p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="mt-5 flex justify-end">
-                    <Button
-                      onClick={saveNote}
-                      disabled={savingNote}
-                      className="rounded-xl bg-gradient-to-r from-[hsl(22_100%_57%)] to-[hsl(42_100%_57%)] text-white shadow-sm hover:opacity-90"
-                    >
-                      {savingNote ? "保存中…" : "保存笔记"}
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <div className="min-h-[600px] rounded-xl border-2 border-foreground/10 bg-background p-4">
-                    <Markdown content={chapter.content} />
-                  </div>
-                  <div className="mt-5 flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      <Link to="/login" className="text-primary font-medium">登录</Link> 后可编辑并保存自己的笔记。
-                    </p>
-                    <Link to="/login">
-                      <Button className="rounded-xl bg-gradient-to-r from-[hsl(22_100%_57%)] to-[hsl(42_100%_57%)] text-white shadow-sm hover:opacity-90">
-                        登录后可编辑
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              )}
-
               {/* 上一章 / 下一章 */}
-              <div className="mt-8 flex items-center justify-between border-t-2 border-dashed border-foreground/10 pt-5">
+              <div className="mt-6 flex items-center justify-between">
                 {activeIndex > 0 ? (
                   <Button variant="outline" size="sm" className="ak-btn-cut max-w-[45%]" onClick={() => select(chapters[activeIndex - 1].id)}>
                     <ChevronLeft className="mr-1 h-4 w-4 shrink-0" />
@@ -261,6 +259,25 @@ export default function SubjectPage() {
           )}
         </article>
       </div>
+
+      {/* 角色插图：固定在右下角，120px */}
+      <img
+        src="/stickers/amiya-notes.png"
+        alt="阿米娅"
+        className="pointer-events-none fixed bottom-4 right-4 z-20 hidden w-[120px] select-none md:block"
+      />
+
+      {/* 未登录时的底部提示条 */}
+      {!user && activeChapter && (
+        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-center gap-3 border-t-2 border-foreground/10 bg-white/95 px-4 py-3 backdrop-blur">
+          <span className="text-sm text-muted-foreground">登录后可编辑此章节</span>
+          <Link to="/login">
+            <Button className="rounded-full bg-gradient-to-r from-[hsl(22_100%_57%)] to-[hsl(42_100%_57%)] px-4 py-1.5 text-white shadow-sm">
+              立即登录
+            </Button>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

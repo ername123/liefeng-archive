@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router";
-import { Search, Menu, X } from "lucide-react";
+import { Search, Menu, X, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DoodleStar } from "@/components/Doodles";
@@ -39,7 +39,11 @@ export function SearchBox({ className, autoFocus }: { className?: string; autoFo
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+
+  const closeMobile = () => setMobileOpen(false);
+
   return (
     <div className="relative z-10 min-h-screen flex flex-col">
       <header className="sticky top-0 z-40 border-b-2 border-foreground/10 bg-background/90 backdrop-blur">
@@ -57,24 +61,26 @@ export default function Layout() {
             </span>
           </Link>
 
-          <nav className="ml-4 hidden items-center gap-1 md:flex">
+          <nav className="ml-4 hidden items-center gap-6 md:flex">
             {NAV.map((n) => (
               <NavLink
                 key={n.to}
                 to={n.to}
                 end={n.to === "/home"}
                 className={({ isActive }) =>
-                  `group flex flex-col items-start rounded-xl px-3 py-1.5 transition-colors ${
-                    isActive ? "text-primary" : "text-muted-foreground hover:bg-white hover:text-foreground"
+                  `group relative flex flex-col items-start px-1 py-1.5 text-sm font-medium transition-colors ${
+                    isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
                     <span className="hud-tag !text-[0.58rem] opacity-70 group-hover:opacity-100">{n.en}</span>
-                    <span className={`text-sm ${isActive ? "font-bold" : ""}`}>
+                    <span className={isActive ? "font-bold" : ""}>
                       {n.label}
-                      {isActive && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary" />}
+                      {isActive && (
+                        <span className="absolute inset-x-0 -bottom-[7px] h-[2px] rounded-full bg-blue-500" />
+                      )}
                     </span>
                   </>
                 )}
@@ -82,21 +88,48 @@ export default function Layout() {
             ))}
           </nav>
 
-          <SearchBox className="ml-auto hidden w-72 md:block lg:w-96" />
-          <div className="hidden items-center gap-1 md:flex">
+          <SearchBox className="ml-auto hidden w-64 md:block lg:w-80" />
+
+          {/* 用户区 */}
+          <div className="hidden items-center gap-3 md:flex">
             {user ? (
-              <>
-                <span className="px-1 text-sm text-muted-foreground">欢迎，{user.username}</span>
-                <Link to="/profile" className="px-2 text-sm hover:text-primary">个人中心</Link>
-                {user.role === "ADMIN" && (
-                  <Link to="/admin" className="px-2 text-sm hover:text-primary">管理后台</Link>
+              <div className="relative">
+                <button
+                  className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary"
+                  onClick={() => setUserMenuOpen((v) => !v)}
+                  onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)}
+                >
+                  <span>欢迎，{user.username}</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-40 rounded-lg border border-foreground/10 bg-white py-1 shadow-lg">
+                    <Link to="/profile" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-foreground hover:bg-gray-50">
+                      个人中心
+                    </Link>
+                    {user.role === "ADMIN" && (
+                      <Link to="/admin" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-foreground hover:bg-gray-50">
+                        管理后台
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => { logout(); setUserMenuOpen(false); }}
+                      className="block w-full px-4 py-2 text-left text-sm text-foreground hover:bg-gray-50"
+                    >
+                      退出
+                    </button>
+                  </div>
                 )}
-                <Button variant="ghost" size="sm" onClick={() => logout()}>退出</Button>
-              </>
+              </div>
             ) : (
               <>
-                <Link to="/login" className="px-2 text-sm hover:text-primary">登录</Link>
-                <Link to="/register" className="px-2 text-sm hover:text-primary">注册</Link>
+                <Link to="/login" className="text-sm font-medium text-foreground hover:text-primary">登录</Link>
+                <Link
+                  to="/register"
+                  className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                >
+                  注册
+                </Link>
               </>
             )}
           </div>
@@ -114,13 +147,13 @@ export default function Layout() {
 
         {mobileOpen && (
           <div className="border-t px-4 py-3 md:hidden">
-            <nav className="mb-3 flex gap-2">
+            <nav className="mb-3 flex flex-wrap gap-2">
               {NAV.map((n) => (
                 <NavLink
                   key={n.to}
                   to={n.to}
                   end={n.to === "/home"}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={closeMobile}
                   className={({ isActive }) =>
                     `rounded-full px-3 py-1.5 text-sm ${
                       isActive ? "bg-primary font-bold text-primary-foreground" : "text-muted-foreground"
@@ -135,14 +168,14 @@ export default function Layout() {
               {user ? (
                 <>
                   <span className="text-muted-foreground">欢迎，{user.username}</span>
-                  <Link to="/profile" onClick={() => setMobileOpen(false)}>个人中心</Link>
-                  {user.role === "ADMIN" && <Link to="/admin" onClick={() => setMobileOpen(false)}>管理后台</Link>}
-                  <button onClick={() => { logout(); setMobileOpen(false); }}>退出</button>
+                  <Link to="/profile" onClick={closeMobile}>个人中心</Link>
+                  {user.role === "ADMIN" && <Link to="/admin" onClick={closeMobile}>管理后台</Link>}
+                  <button onClick={() => { logout(); closeMobile(); }}>退出</button>
                 </>
               ) : (
                 <>
-                  <Link to="/login" onClick={() => setMobileOpen(false)}>登录</Link>
-                  <Link to="/register" onClick={() => setMobileOpen(false)}>注册</Link>
+                  <Link to="/login" onClick={closeMobile}>登录</Link>
+                  <Link to="/register" onClick={closeMobile}>注册</Link>
                 </>
               )}
             </div>

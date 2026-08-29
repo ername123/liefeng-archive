@@ -27,24 +27,27 @@ export default function ProfilePage() {
 
   return (
     <div className="page-wrap">
-      <h1 className="font-display text-3xl font-bold">个人中心</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        欢迎，{user.username}（{user.role === "ADMIN" ? "管理员" : "普通用户"}）
-      </p>
+      {/* 标题区 */}
+      <div className="mb-8 border-b border-foreground/10 pb-4">
+        <h1 className="font-display text-3xl font-bold">个人中心</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          欢迎，{user.username}（{user.role === "ADMIN" ? "管理员" : "普通用户"}）
+        </p>
+      </div>
 
       {/* 统计卡片 */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <div className="ak-card p-5 text-center">
-          <p className="font-display text-3xl font-bold">{notes.length}</p>
-          <p className="text-xs text-muted-foreground">我的笔记</p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="ui-card p-5 text-center">
+          <p className="text-4xl font-bold">{notes.length}</p>
+          <p className="mt-2 text-xs text-muted-foreground">我的笔记</p>
         </div>
-        <div className="ak-card p-5 text-center">
-          <p className="font-display text-3xl font-bold">{posts.length}</p>
-          <p className="text-xs text-muted-foreground">我的经验帖</p>
+        <div className="ui-card p-5 text-center">
+          <p className="text-4xl font-bold">{posts.length}</p>
+          <p className="mt-2 text-xs text-muted-foreground">我的经验帖</p>
         </div>
-        <div className="ak-card p-5 text-center">
-          <p className="font-display text-3xl font-bold">{user.role === "ADMIN" ? "管理员" : "用户"}</p>
-          <p className="text-xs text-muted-foreground">账号角色</p>
+        <div className="ui-card p-5 text-center">
+          <p className="text-4xl font-bold">{user.role === "ADMIN" ? "A" : "U"}</p>
+          <p className="mt-2 text-xs text-muted-foreground">账号角色</p>
         </div>
       </div>
 
@@ -52,11 +55,15 @@ export default function ProfilePage() {
         <div>
           <h2 className="mb-3 font-display text-xl font-bold">最近编辑</h2>
           {notes.length === 0 ? (
-            <div className="ak-card p-5 text-sm text-muted-foreground">还没有个人笔记，去章节页记一条吧。</div>
+            <div className="ui-card p-5 text-sm text-muted-foreground">还没有个人笔记，去章节页记一条吧。</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {notes.slice(0, 6).map((n) => (
-                <Link key={n.id ?? n.chapterId} to={n.subjectSlug ? `/subject/${n.subjectSlug}?chapter=${n.chapterId}` : "/home"} className="ak-card block p-4">
+                <Link
+                  key={n.id ?? n.chapterId}
+                  to={n.subjectSlug ? `/subject/${n.subjectSlug}?chapter=${n.chapterId}` : "/home"}
+                  className="ui-card block p-4 transition-colors duration-200 hover:bg-gray-50"
+                >
                   <span className="font-medium">{n.chapterTitle ?? `章节 ${n.chapterId}`}</span>
                   <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{n.content}</p>
                 </Link>
@@ -68,11 +75,11 @@ export default function ProfilePage() {
         <div>
           <h2 className="mb-3 font-display text-xl font-bold">我的经验帖</h2>
           {posts.length === 0 ? (
-            <div className="ak-card p-5 text-sm text-muted-foreground">还没有发过经验帖。</div>
+            <div className="ui-card p-5 text-sm text-muted-foreground">还没有发过经验帖。</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {posts.map((p) => (
-                <Link key={p.id} to={`/experiences/${p.id}`} className="ak-card block p-4">
+                <Link key={p.id} to={`/experiences/${p.id}`} className="ui-card block p-4 transition-colors duration-200 hover:bg-gray-50">
                   <span className="font-medium">{p.title}</span>
                   <p className="mt-1 text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleDateString("zh-CN")}</p>
                 </Link>

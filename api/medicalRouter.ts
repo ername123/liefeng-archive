@@ -77,7 +77,7 @@ export const medicalRouter = createRouter({
       const [{ id }] = await db
         .insert(chapters)
         .values({ ...input, sortOrder })
-        .$returningId();
+        .returning({ id: chapters.id });
       return { id };
     }),
 

@@ -1,32 +1,31 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
+import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
 
 /** 学科：系统解剖学、生理学…… */
-export const subjects = sqliteTable("subjects", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const subjects = pgTable("subjects", {
+  id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
   icon: text("icon"),
   sortOrder: integer("sortOrder").notNull().default(0),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 /** 章节笔记：内容以 Markdown 存储，支持 ==高亮== 语法 */
-export const chapters = sqliteTable("chapters", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const chapters = pgTable("chapters", {
+  id: serial("id").primaryKey(),
   subjectId: integer("subjectId").notNull(),
   title: text("title").notNull(),
   summary: text("summary"),
   content: text("content").notNull(),
   sortOrder: integer("sortOrder").notNull().default(0),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
-  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 /** 资源导航外链 */
-export const resources = sqliteTable("resources", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const resources = pgTable("resources", {
+  id: serial("id").primaryKey(),
   category: text("category").notNull(), // 大类
   grp: text("grp").notNull().default(""), // 小分类
   title: text("title").notNull(),
@@ -36,15 +35,15 @@ export const resources = sqliteTable("resources", {
 });
 
 /** 自测题库：单选题 */
-export const questions = sqliteTable("questions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const questions = pgTable("questions", {
+  id: serial("id").primaryKey(),
   subjectId: integer("subjectId").notNull(),
   stem: text("stem").notNull(),
   options: text("options").notNull(), // JSON: ["A. …", "B. …"]
   answer: text("answer").notNull(), // "A" | "B" | …
   explanation: text("explanation"),
   sortOrder: integer("sortOrder").notNull().default(0),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type Subject = typeof subjects.$inferSelect;

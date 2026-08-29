@@ -373,4 +373,82 @@ export function registerRestRoutes(app: Hono<{ Bindings: HttpBindings }>) {
     await db.delete(resources).where(eq(resources.id, id));
     return c.json({ ok: true });
   });
+
+
+  /* ============ 管理员：章节管理 ============ */
+
+  // 章节列表（后台用，带学科信息）
+  app.get("/api/admin/chapters", async (c) => {
+    const user = await getCurrentUser(c);
+    if (!user || user.role !== "ADMIN") return c.json({ error: "需要管理员权限" }, 403);
+    const db = getDb();
+    const rows = await db
+      .select({
+        id: chapters.id,
+        subjectId: chapters.subjectId,
+        title: chapters.title,
+        summary: chapters.summary,
+        content: chapters.content,
+        sortOrder: chapters.sortOrder,
+        subjectSlug: subjects.slug,
+        subjectName: subjects.name,
+      })
+      .from(chapters)
+      .leftJoin(subjects, eq(chapters.subjectId, subjects.id))
+      .orderBy(asc(chapters.subjectId), asc(chapters.sortOrder));
+    return c.json({ chapters: rows });
+  });
+
+  // 新增章节
+  app.post("/api/admin/chapters", async (c) => {
+    const user = await getCurrentUser(c);
+    if (!user || user.role !== "ADMIN") return c.json({ error: "需要管理员权限" }, 403);
+    const body = await c.req.json();
+    const db = getDb();
+    const [row] = await db
+      .insert(chapters)
+      .values({
+        subjectId: Number(body?.subjectId ?? 0),
+        title: String(body?.title ?? ""),
+        summary: String(body?.summary ?? ""),
+        content: String(body?.content ?? ""),
+        sortOrder: Number(body?.sortOrder ?? 0),
+      })
+      .returning();
+    return c.json({ chapter: row });
+  });
+
+  // 更新章节
+  app.put("/api/admin/chapters/:id", async (c) => {
+    const user = await getCurrentUser(c);
+    if (!user || user.role !== "ADMIN") return c.json({ error: "需要管理员权限" }, 403);
+    const id = Number(c.req.param("id"));
+    const body = await c.req.json();
+    const db = getDb();
+    const [row] = await db
+      .update(chapters)
+      .set({
+        subjectId: Number(body?.subjectId ?? 0),
+        title: String(body?.title ?? ""),
+        summary: String(body?.summary ?? ""),
+        content: String(body?.content ?? ""),
+        sortOrder: Number(body?.sortOrder ?? 0),
+        updatedAt: new Date(),
+      })
+      .where(eq(chapters.id, id))
+      .returning();
+    return c.json({ chapter: row });
+  });
+
+  // 删除章节（同时删除该章节的示例笔记和所有个人笔记）
+  app.delete("/api/admin/chapters/:id", async (c) => {
+    const user = await getCurrentUser(c);
+    if (!user || user.role !== "ADMIN") return c.json({ error: "需要管理员权限" }, 403);
+    const id = Number(c.req.param("id"));
+    const db = getDb();
+    await db.delete(exampleNotes).where(eq(exampleNotes.chapterId, id));
+    await db.delete(userNotes).where(eq(userNotes.chapterId, id));
+    await db.delete(chapters).where(eq(chapters.id, id));
+    return c.json({ ok: true });
+  });
 }

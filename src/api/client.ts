@@ -65,6 +65,12 @@ export const api = {
       request<{ comment: Comment }>("/api/comments", { method: "POST", body: JSON.stringify({ postId, content }) }),
     remove: (id: string) => request<{ ok: true }>(`/api/comments/${id}`, { method: "DELETE" }),
   },
+  admin: {
+    chapters: () => request<{ chapters: Array<Record<string, unknown>> }>("/api/admin/chapters"),
+    createChapter: (r: Record<string, unknown>) => request("/api/admin/chapters", { method: "POST", body: JSON.stringify(r) }),
+    updateChapter: (id: number, r: Record<string, unknown>) => request(`/api/admin/chapters/${id}`, { method: "PUT", body: JSON.stringify(r) }),
+    deleteChapter: (id: number) => request(`/api/admin/chapters/${id}`, { method: "DELETE" }),
+  },
   resources: {
     list: () => request<{ resources: Array<Record<string, unknown>> }>("/api/resources"),
     create: (r: Record<string, unknown>) => request("/api/resources", { method: "POST", body: JSON.stringify(r) }),

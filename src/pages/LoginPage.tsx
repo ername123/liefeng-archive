@@ -55,7 +55,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
           />
-          <Button type="submit" className="w-full" disabled={pending}>
+          <Button type="submit" className="w-full rounded-xl bg-gradient-to-r from-[hsl(22_100%_57%)] to-[hsl(42_100%_57%)] text-white shadow-sm" disabled={pending}>
             {pending ? "登录中…" : "登录"}
           </Button>
         </form>

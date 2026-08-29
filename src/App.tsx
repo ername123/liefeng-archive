@@ -12,6 +12,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import ExperiencesPage from "@/pages/ExperiencesPage";
 import ExperienceDetailPage from "@/pages/ExperienceDetailPage";
 import ExperienceNewPage from "@/pages/ExperienceNewPage";
+import AdminPage from "@/pages/AdminPage";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFound() {
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route element={<Layout />}>
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="/experiences" element={<ExperiencesPage />} />
           <Route path="/experiences/new" element={<ExperienceNewPage />} />
           <Route path="/experiences/:id" element={<ExperienceDetailPage />} />

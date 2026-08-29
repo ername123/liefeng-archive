@@ -89,7 +89,7 @@ export default function Layout() {
                 <span className="px-1 text-sm text-muted-foreground">欢迎，{user.username}</span>
                 <Link to="/profile" className="px-2 text-sm hover:text-primary">个人中心</Link>
                 {user.role === "ADMIN" && (
-                  <Link to="/resources" className="px-2 text-sm hover:text-primary">资源管理</Link>
+                  <Link to="/admin" className="px-2 text-sm hover:text-primary">管理后台</Link>
                 )}
                 <Button variant="ghost" size="sm" onClick={() => logout()}>退出</Button>
               </>
@@ -136,7 +136,7 @@ export default function Layout() {
                 <>
                   <span className="text-muted-foreground">欢迎，{user.username}</span>
                   <Link to="/profile" onClick={() => setMobileOpen(false)}>个人中心</Link>
-                  {user.role === "ADMIN" && <Link to="/resources" onClick={() => setMobileOpen(false)}>资源管理</Link>}
+                  {user.role === "ADMIN" && <Link to="/admin" onClick={() => setMobileOpen(false)}>管理后台</Link>}
                   <button onClick={() => { logout(); setMobileOpen(false); }}>退出</button>
                 </>
               ) : (

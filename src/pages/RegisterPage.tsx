@@ -60,7 +60,7 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
           />
-          <Button type="submit" className="w-full" disabled={pending}>
+          <Button type="submit" className="w-full rounded-xl bg-gradient-to-r from-[hsl(22_100%_57%)] to-[hsl(42_100%_57%)] text-white shadow-sm" disabled={pending}>
             {pending ? "注册中…" : "注册"}
           </Button>
         </form>

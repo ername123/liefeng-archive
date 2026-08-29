@@ -15,8 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx db/seed.ts",
-    "postinstall": "node patch-userinfo.cjs"
+    "db:seed": "tsx db/seed.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.3",

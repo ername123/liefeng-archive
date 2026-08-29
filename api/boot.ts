@@ -7,8 +7,10 @@ import path from "path";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
+import { registerRestRoutes } from "./rest";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
+registerRestRoutes(app);
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 

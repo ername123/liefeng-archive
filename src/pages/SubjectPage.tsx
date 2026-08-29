@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { trpc } from "@/providers/trpc";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/api/client";
 import { Markdown, extractToc } from "@/components/Markdown";
 import { BackButton } from "@/components/BackButton";
 import { ChapterEditor } from "@/components/ChapterEditor";
 import { subjectIcon } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Pencil, ChevronLeft, ChevronRight, ListChecks, ListTree } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +23,12 @@ export default function SubjectPage() {
   const [selectedId, setSelectedId] = useState<number | null>(chapterFromUrl);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<{ id?: number; title: string; summary: string; content: string } | null>(null);
+  const { user } = useAuth();
+  const [exampleOpen, setExampleOpen] = useState(false);
+  const [exampleContent, setExampleContent] = useState("");
+  const [myNote, setMyNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [chaptersOpen, setChaptersOpen] = useState(false);
 
   const chapters = data?.chapters ?? [];
   const activeId = useMemo(() => {
@@ -36,6 +46,19 @@ export default function SubjectPage() {
     if (chapterFromUrl) setSelectedId(chapterFromUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterFromUrl]);
+
+  // 切换章节时加载示例笔记和当前用户的个人笔记
+  useEffect(() => {
+    if (!activeId) return;
+    setExampleContent("");
+    setExampleOpen(false);
+    api.examples.get(activeId).then((r) => setExampleContent(r.content)).catch(() => null);
+    if (user) {
+      api.notes.get(activeId).then((r) => setMyNote(r.content)).catch(() => null);
+    } else {
+      setMyNote("");
+    }
+  }, [activeId, user]);
 
   const select = (id: number) => {
     setSelectedId(id);
@@ -70,11 +93,25 @@ export default function SubjectPage() {
     setActiveHeading(id);
   };
 
+  // 保存当前用户的个人笔记
+  const saveNote = async () => {
+    if (!activeId) return;
+    setSavingNote(true);
+    try {
+      await api.notes.save(activeId, myNote);
+      toast.success("笔记已保存");
+    } catch (err: any) {
+      toast.error(err.message || "保存失败");
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8">
         <Skeleton className="mb-6 h-8 w-64 rounded-xl" />
-        <div className="grid gap-8 lg:grid-cols-[250px_minmax(0,1fr)_210px]">
+        <div className="grid gap-8 lg:grid-cols-[180px_minmax(0,1fr)_210px]">
           <Skeleton className="h-96 rounded-2xl" />
           <Skeleton className="h-96 rounded-2xl" />
           <Skeleton className="hidden h-64 rounded-2xl lg:block" />
@@ -135,9 +172,12 @@ export default function SubjectPage() {
       </div>
 
       {/* 三栏：章节目录 / 正文 / 本页内容 */}
-      <div className="grid gap-10 lg:grid-cols-[250px_minmax(0,1fr)_210px]">
+      <button className="mb-4 md:hidden" onClick={() => setChaptersOpen((v) => !v)}>
+        {chaptersOpen ? "收起章节列表" : "打开章节列表"}
+      </button>
+      <div className="grid gap-10 lg:grid-cols-[180px_minmax(0,1fr)_210px]">
         {/* 左：章节目录 */}
-        <aside className="lg:sticky lg:top-24 lg:self-start">
+        <aside className={`${chaptersOpen ? "block" : "hidden"} md:block lg:sticky lg:top-24 lg:self-start`}>
           <p className="hud-tag mb-3 flex items-center gap-2 px-1">
             <ListTree className="h-3.5 w-3.5" /> // CHAPTER INDEX
           </p>
@@ -241,6 +281,44 @@ export default function SubjectPage() {
           ) : (
             <p className="py-16 text-center text-muted-foreground">选择左侧章节开始阅读。</p>
           )}
+        {activeId && (
+          <div className="mt-6 space-y-6">
+            {/* 示例笔记卡片：浅黄背景，可折叠 */}
+            <div className="rounded-2xl border-2 border-yellow-200 bg-yellow-50 p-4">
+              <button className="flex w-full items-center justify-between text-left" onClick={() => setExampleOpen((v) => !v)}>
+                <span className="font-bold text-foreground">示例笔记</span>
+                <span className="text-sm text-muted-foreground">{exampleOpen ? "收起" : "展开"}</span>
+              </button>
+              {exampleOpen && (
+                <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
+                  {exampleContent || "暂无示例笔记"}
+                </div>
+              )}
+            </div>
+
+            {/* 我的笔记编辑区：白底 + 蓝色左边框 */}
+            <div className="rounded-2xl border-2 border-foreground/10 border-l-4 border-l-[hsl(199_89%_46%)] bg-white p-4">
+              <p className="mb-2 font-bold">我的笔记</p>
+              {user ? (
+                <>
+                  <Textarea
+                    value={myNote}
+                    onChange={(e) => setMyNote(e.target.value)}
+                    className="min-h-[120px]"
+                    placeholder="写下你自己的笔记…"
+                  />
+                  <div className="mt-3 flex justify-end">
+                    <Button onClick={saveNote} disabled={savingNote}>{savingNote ? "保存中…" : "保存笔记"}</Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  <Link to="/login" className="text-primary">登录</Link> 后即可保存个人笔记。
+                </p>
+              )}
+            </div>
+          </div>
+        )}
         </article>
 
         {/* 右：本页内容（滚动高亮当前小节） */}

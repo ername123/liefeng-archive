@@ -4,11 +4,13 @@ import { Search, Menu, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DoodleStar } from "@/components/Doodles";
+import { useAuth } from "@/context/AuthContext";
 
 const NAV = [
   { to: "/home", label: "首页", en: "INDEX" },
   { to: "/resources", label: "资源导航", en: "LINKS" },
   { to: "/quiz", label: "自测题库", en: "QUIZ" },
+  { to: "/experiences", label: "经验广场", en: "NOTES" },
 ];
 
 export function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: boolean }) {
@@ -37,6 +39,7 @@ export function SearchBox({ className, autoFocus }: { className?: string; autoFo
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, logout } = useAuth();
   return (
     <div className="relative z-10 min-h-screen flex flex-col">
       <header className="sticky top-0 z-40 border-b-2 border-foreground/10 bg-background/90 backdrop-blur">
@@ -80,6 +83,23 @@ export default function Layout() {
           </nav>
 
           <SearchBox className="ml-auto hidden w-72 md:block lg:w-96" />
+          <div className="hidden items-center gap-1 md:flex">
+            {user ? (
+              <>
+                <span className="px-1 text-sm text-muted-foreground">欢迎，{user.username}</span>
+                <Link to="/profile" className="px-2 text-sm hover:text-primary">个人中心</Link>
+                {user.role === "ADMIN" && (
+                  <Link to="/resources" className="px-2 text-sm hover:text-primary">资源管理</Link>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => logout()}>退出</Button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="px-2 text-sm hover:text-primary">登录</Link>
+                <Link to="/register" className="px-2 text-sm hover:text-primary">注册</Link>
+              </>
+            )}
+          </div>
 
           <Button
             variant="ghost"
@@ -111,6 +131,21 @@ export default function Layout() {
                 </NavLink>
               ))}
             </nav>
+            <div className="mb-3 flex flex-wrap gap-2 text-sm">
+              {user ? (
+                <>
+                  <span className="text-muted-foreground">欢迎，{user.username}</span>
+                  <Link to="/profile" onClick={() => setMobileOpen(false)}>个人中心</Link>
+                  {user.role === "ADMIN" && <Link to="/resources" onClick={() => setMobileOpen(false)}>资源管理</Link>}
+                  <button onClick={() => { logout(); setMobileOpen(false); }}>退出</button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" onClick={() => setMobileOpen(false)}>登录</Link>
+                  <Link to="/register" onClick={() => setMobileOpen(false)}>注册</Link>
+                </>
+              )}
+            </div>
             <SearchBox />
           </div>
         )}

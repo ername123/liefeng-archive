@@ -1,6 +1,9 @@
 import { getDb } from "../api/queries/connection";
-import { subjects, chapters, resources, questions } from "./schema";
+import { subjects, chapters, resources, questions, exampleNotes, users } from "./schema";
 import { RESOURCE_SEED } from "./resource_seed";
+import { eq, asc } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import bcrypt from "bcryptjs";
 
 const SUBJECTS = [
   { slug: "anatomy", name: "系统解剖学", icon: "Bone", sortOrder: 1, description: "研究正常人体形态结构的科学，按运动、消化、呼吸、泌尿、生殖、循环、感官、神经等系统展开。" },
@@ -463,6 +466,133 @@ CHAPTERS.push(
   },
 );
 
+SUBJECTS.push({ slug: "internal-medicine", name: "内科学", icon: "Stethoscope", sortOrder: 11, description: "研究内科疾病的病因、发病机制、诊断、治疗与预防。" });
+
+CHAPTERS.push(
+  { subject: "internal-medicine", title: "呼吸系统：肺炎", sortOrder: 1, summary: "肺炎的分类、临床表现、诊断与治疗原则。", content: `## 肺炎概述
+
+肺炎指终末气道、肺泡和肺间质的炎症，常见病原为细菌、病毒、支原体等。
+
+| 分类 | 代表病原 | 特点 |
+| --- | --- | --- |
+| 社区获得性肺炎 | 肺炎链球菌 | 最常见 |
+| 医院获得性肺炎 | 革兰阴性杆菌 | 病死率较高 |
+
+> ==大叶性肺炎==典型表现为高热、咳嗽、铁锈色痰，X 线呈肺叶实变。` },
+  { subject: "internal-medicine", title: "循环系统：心力衰竭", sortOrder: 2, summary: "心衰的病因、诱因与左右心衰表现。", content: `## 心力衰竭
+
+心衰是各种心脏结构或功能性疾病导致心室充盈和（或）射血能力受损的临床综合征。
+
+- ==左心衰==：肺循环淤血，表现为呼吸困难、咳粉红色泡沫痰。
+- ==右心衰==：体循环淤血，表现为颈静脉怒张、肝大、下肢水肿。
+
+> 感染是最常见的诱发因素。` },
+  { subject: "internal-medicine", title: "消化系统：消化性溃疡", sortOrder: 3, summary: "胃溃疡与十二指肠溃疡的鉴别与并发症。", content: `## 消化性溃疡
+
+| 项目 | 胃溃疡 | 十二指肠溃疡 |
+| --- | --- | --- |
+| 疼痛节律 | 餐后痛 | 空腹痛 / 夜间痛 |
+| 好发部位 | 胃小弯 | 十二指肠球部 |
+
+常见并发症：出血、穿孔、幽门梗阻、癌变。==幽门螺杆菌感染==是最主要病因之一。` },
+  { subject: "internal-medicine", title: "泌尿系统：肾小球疾病", sortOrder: 4, summary: "肾炎与肾病综合征的核心表现。", content: `## 肾小球疾病
+
+- 肾炎综合征：血尿、蛋白尿、水肿、高血压。
+- 肾病综合征：大量蛋白尿（>3.5 g/d）、低白蛋白血症（<30 g/L）、水肿、高脂血症。
+
+> 上呼吸道感染后 1～3 周出现血尿，提示==急性链球菌感染后肾小球肾炎==。` },
+  { subject: "internal-medicine", title: "血液系统：贫血", sortOrder: 5, summary: "贫血的常见分类与缺铁性贫血。", content: `## 贫血
+
+按红细胞形态分为大细胞、正细胞、小细胞低色素性贫血。
+
+- 缺铁性贫血：小细胞低色素，血清铁降低，铁蛋白降低。
+- 巨幼细胞贫血：大细胞，由叶酸或维生素 B12 缺乏引起。
+
+> ==缺铁性贫血==最常见的原因是慢性失血。` },
+  { subject: "internal-medicine", title: "内分泌与代谢：糖尿病", sortOrder: 6, summary: "糖尿病的诊断标准与分型。", content: `## 糖尿病
+
+诊断标准（满足其一）：
+
+- 空腹血糖 ≥ 7.0 mmol/L；
+- OGTT 2 小时血糖 ≥ 11.1 mmol/L；
+- 典型症状 + 随机血糖 ≥ 11.1 mmol/L。
+
+1 型糖尿病与胰岛自身免疫有关；2 型糖尿病以胰岛素抵抗为主。` },
+  { subject: "internal-medicine", title: "风湿性疾病：类风湿关节炎", sortOrder: 7, summary: "类风湿关节炎的关节表现与自身抗体。", content: `## 类风湿关节炎
+
+类风湿关节炎是一种以对称性多关节炎为主要表现的自身免疫病。
+
+- 好发部位：近端指间关节、掌指关节、腕关节。
+- 特征性抗体：==抗 CCP 抗体==、类风湿因子（RF）。
+- 典型关节外表现：类风湿结节。` },
+);
+
+const EXAMPLES = [
+  { title: "呼吸系统：肺炎", content: `# 示例笔记
+
+肺炎按患病环境分为社区获得性与医院获得性两类。
+
+**答题要点：**
+
+1. 大叶性肺炎最常见病原是肺炎链球菌。
+2. 铁锈色痰提示肺炎链球菌感染。
+3. 医院获得性肺炎以革兰阴性杆菌为主。` },
+  { title: "循环系统：心力衰竭", content: `# 示例笔记
+
+心力衰竭按部位分为左心衰、右心衰和全心衰。
+
+**答题要点：**
+
+1. 左心衰 = 肺淤血 = 呼吸困难。
+2. 右心衰 = 体循环淤血 = 肝大、水肿。
+3. 感染是最常见诱因。` },
+  { title: "消化系统：消化性溃疡", content: `# 示例笔记
+
+消化性溃疡的节律性疼痛是重要考点。
+
+**答题要点：**
+
+1. 十二指肠溃疡：空腹痛、夜间痛。
+2. 胃溃疡：餐后痛。
+3. 幽门螺杆菌是主要病因。` },
+  { title: "泌尿系统：肾小球疾病", content: `# 示例笔记
+
+肾炎综合征与肾病综合征要区分清楚。
+
+**答题要点：**
+
+1. 肾病综合征 = 大量蛋白尿 + 低白蛋白血症。
+2. 链球菌感染后肾炎常表现为血尿。
+3. 水肿与高血压是共同表现。` },
+  { title: "血液系统：贫血", content: `# 示例笔记
+
+贫血按形态学分类。
+
+**答题要点：**
+
+1. 缺铁性贫血是小细胞低色素性贫血。
+2. 巨幼细胞贫血是大细胞性贫血。
+3. 缺铁最常见原因是慢性失血。` },
+  { title: "内分泌与代谢：糖尿病", content: `# 示例笔记
+
+糖尿病的诊断标准必须背熟。
+
+**答题要点：**
+
+1. 空腹血糖 ≥ 7.0 mmol/L。
+2. OGTT 2 h 血糖 ≥ 11.1 mmol/L。
+3. 2 型糖尿病以胰岛素抵抗为主。` },
+  { title: "风湿性疾病：类风湿关节炎", content: `# 示例笔记
+
+类风湿关节炎是自身免疫病。
+
+**答题要点：**
+
+1. 对称性小关节炎。
+2. 抗 CCP 抗体特异性较高。
+3. 类风湿结节是常见关节外表现。` },
+];
+
 // ---------- 资源导航 ----------
 const RESOURCES = [
   // 网课
@@ -540,6 +670,7 @@ async function seed() {
   await db.delete(chapters);
   await db.delete(resources);
   await db.delete(subjects);
+  await db.delete(exampleNotes);
 
   console.log("Inserting subjects...");
   const slugToId = new Map<string, number>();
@@ -562,6 +693,34 @@ async function seed() {
 
   console.log("Inserting resources...");
   await db.insert(resources).values(RESOURCE_SEED.map(({ grp, ...r }) => ({ grp, ...r })));
+  await db.insert(resources).values(RESOURCES);
+
+  console.log("Inserting example notes...");
+  const internalMedicineId = slugToId.get("internal-medicine")!;
+  const internalChapters = await db
+    .select()
+    .from(chapters)
+    .where(eq(chapters.subjectId, internalMedicineId))
+    .orderBy(asc(chapters.sortOrder));
+  for (let i = 0; i < EXAMPLES.length && i < internalChapters.length; i++) {
+    await db.insert(exampleNotes).values({
+      id: randomUUID(),
+      chapterId: internalChapters[i].id,
+      content: EXAMPLES[i].content,
+    });
+  }
+
+  console.log("Inserting admin user...");
+  const adminRows = await db.select().from(users).where(eq(users.username, "admin")).limit(1);
+  if (!adminRows.length) {
+    await db.insert(users).values({
+      id: randomUUID(),
+      username: "admin",
+      email: "admin@liefeng.dev",
+      passwordHash: await bcrypt.hash("admin123", 10),
+      role: "ADMIN",
+    });
+  }
 
   console.log("Inserting questions...");
   for (const q of QUESTIONS) {

@@ -1,13 +1,21 @@
 // 修复部分 Windows 电脑上 os.userInfo() 报 ENOMEM 导致 tsx / drizzle-kit 崩溃的问题。
-// 这个脚本会在 npm install 之后自动运行，对 node_modules 里的相关文件做补丁。
+// 这个脚本会在 npm install 之后自动运行。
+// 注意：只在 Windows 上打补丁；Linux/macOS（例如 Railway）不需要补丁，直接跳过，避免误改代码。
 const fs = require("fs");
 const path = require("path");
+
+if (process.platform !== "win32") {
+  console.log("[patch-userinfo] skipped (not Windows)");
+  process.exit(0);
+}
 
 function patchFile(file) {
   if (!fs.existsSync(file)) return false;
   let text = fs.readFileSync(file, "utf8");
   const before = text;
-  text = text.replace(/userInfo\(\)\.username/g, '(process.env.USERNAME || process.env.USER || "user")');
+  // 把整个 `xxx.userInfo().username` 替换成安全的用户名读取方式，
+  // 不能只替换 `userInfo().username`，否则会留下 `xxx.(...)` 这种非法语法。
+  text = text.replace(/\w+\.userInfo\(\)\.username/g, '(process.env.USERNAME || process.env.USER || "user")');
   if (text !== before) {
     fs.writeFileSync(file, text, "utf8");
     return true;

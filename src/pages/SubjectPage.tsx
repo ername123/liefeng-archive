@@ -221,7 +221,7 @@ export default function SubjectPage() {
                   <button
                     onClick={() => setMode("read")}
                     className={cn(
-                      "rounded-full px-5 py-2 text-sm font-medium transition-colors",
+                      "flex min-h-[44px] items-center rounded-full px-4 py-2 text-sm font-medium transition-colors",
                       mode === "read" ? "bg-primary text-primary-foreground" : "border border-foreground/20 text-muted-foreground",
                     )}
                   >
@@ -230,7 +230,7 @@ export default function SubjectPage() {
                   <button
                     onClick={() => setMode("edit")}
                     className={cn(
-                      "rounded-full px-5 py-2 text-sm font-medium transition-colors",
+                      "flex min-h-[44px] items-center rounded-full px-4 py-2 text-sm font-medium transition-colors",
                       mode === "edit" ? "bg-primary text-primary-foreground" : "border border-foreground/20 text-muted-foreground",
                     )}
                   >
@@ -248,10 +248,24 @@ export default function SubjectPage() {
                     <p className="py-10 text-sm text-muted-foreground">暂无内容。</p>
                   )}
                 </div>
+              ) : isMobile ? (
+                /* 手机：单栏大 textarea，占满屏幕，底部留出提示条空间 */
+                <div className="pb-20">
+                  <Textarea
+                    value={draft}
+                    onChange={(e) => onChangeDraft(e.target.value)}
+                    placeholder="开始写笔记，支持 Markdown：## 标题、- 列表、| 表格 |、&gt; 引用、==高亮=="
+                    className="min-h-[80vh] w-full p-4 font-mono text-base leading-relaxed"
+                    style={{ touchAction: "manipulation", WebkitUserSelect: "text" }}
+                  />
+                  <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                    <span>{saveStatus === "saving" ? "保存中…" : saveStatus === "saved" ? "已保存 ✓" : saveStatus === "error" ? "保存失败 ✗" : ""}</span>
+                  </div>
+                </div>
               ) : (
-                /* 编辑模式：分屏实时编辑 + 预览 */
+                /* 电脑/平板：左右分屏实时编辑 + 预览 */
                 <div>
-                  <Group orientation={isMobile ? "vertical" : "horizontal"} className="gap-0">
+                  <Group orientation="horizontal" className="gap-0">
                     <Panel defaultSize="50" minSize="20">
                       <div className="flex h-full flex-col">
                         <div className="flex items-center justify-between px-6 pt-3">
